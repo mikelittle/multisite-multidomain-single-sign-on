@@ -11,12 +11,13 @@ Author URI: https://emfluence.com
 License: GPL2
 */
 
-const MMSSO_AUTH_FROM_QUERY_VAR      = 'sso-f';
-const MMSSO_AUTH_RETURN_TO_QUERY_VAR = 'sso-r';
-const MMSSO_NONCE                    = 'sso-n';
-const MMSSO_HASH_QUERY_VAR           = 'sso-h';
-const MMSSO_USER_ID_QUERY_VAR        = 'sso-u';
-const MMSSO_EXPIRES_QUERY_VAR        = 'sso-e';
+const MMSSO_FROM_QUERY_VAR      = 'sso-f';
+const MMSSO_RETURN_TO_QUERY_VAR = 'sso-r';
+const MMSSO_NONCE               = 'sso-n';
+const MMSSO_HASH_QUERY_VAR      = 'sso-h';
+const MMSSO_USER_ID_QUERY_VAR   = 'sso-u';
+const MMSSO_EXPIRES_QUERY_VAR   = 'sso-e';
+const MMSSO_NONCE_PREFIX        = 'mmsso-';
 
 /** @noinspection AutoloadingIssuesInspection */
 
@@ -44,7 +45,7 @@ class Multisite_Multidomain_Single_Sign_On {
 
 
 	/**
-	 * Private constructor we can only be constructed via the get_instance method.
+	 * Private constructor. We can only be constructed via the get_instance method.
 	 */
 	private function __construct() {
 		add_action( 'wp_before_admin_bar_render', [ $this, 'change_site_switcher_links' ] );
@@ -81,41 +82,48 @@ class Multisite_Multidomain_Single_Sign_On {
 				continue;
 			}
 
-			$node->href       = $this->add_sso_to_url( $node->href );
+			$node->href = $this->add_sso_to_url( $node->href );
 			$wp_admin_bar->add_node( $node );
 		}
 	}
 
+	/**
+	 * Add Single Sign-on parameters to the passed in URL.
+	 *
+	 * @param string $url The passed in URL.
+	 *
+	 * @return string The url with added parameters.
+	 */
 	public function add_sso_to_url( string $url ) : string {
 		$current_site_id = get_current_blog_id();
 
 		$target_url_parts = wp_parse_url( $url );
 		$target_site      = get_site_by_path( $target_url_parts['host'], $target_url_parts['path'] );
-		$nonce            = wp_create_nonce( 'multisite-sso-' . $current_site_id . '-' . $target_site->blog_id );
+		$nonce            = wp_create_nonce( MMSSO_NONCE_PREFIX . $current_site_id . '-' . $target_site->blog_id );
 
 		return add_query_arg(
 			[
-				MMSSO_AUTH_FROM_QUERY_VAR => $current_site_id,
-				MMSSO_NONCE               => $nonce,
+				MMSSO_FROM_QUERY_VAR => $current_site_id,
+				MMSSO_NONCE          => $nonce,
 			],
 			$url
 		);
 	}
 
 	/*
-	 * Initiate the workflow, on a target site that the user wants to log into.
+	 * Initiate the workflow on a target site that the user wants to log into.
 	 */
 	public function receive_sso_request() : void {
-		if ( empty( $_GET[ MMSSO_AUTH_FROM_QUERY_VAR ] ) ) {
+		if ( empty( $_GET[ MMSSO_FROM_QUERY_VAR ] ) ) {
 			return;
 		} // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( is_user_logged_in() ) {
-			wp_redirect( remove_query_arg( [ MMSSO_AUTH_FROM_QUERY_VAR, MMSSO_NONCE ] ) );
+			wp_redirect( remove_query_arg( [ MMSSO_FROM_QUERY_VAR, MMSSO_NONCE ] ) );
 			exit();
 		}
 
-		$coming_from = (int) $_GET[ MMSSO_AUTH_FROM_QUERY_VAR ]; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$coming_from = (int) $_GET[ MMSSO_FROM_QUERY_VAR ]; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$sso_site    = get_site( $coming_from );
 
 		if ( $sso_site === null ) {
@@ -126,11 +134,11 @@ class Multisite_Multidomain_Single_Sign_On {
 			wp_die( 'Single Sign On was attempted with a missing nonce.' );
 		}
 
-		$return_url = get_site_url() . remove_query_arg( [ MMSSO_AUTH_FROM_QUERY_VAR, MMSSO_NONCE ] );
+		$return_url = get_site_url() . remove_query_arg( [ MMSSO_FROM_QUERY_VAR, MMSSO_NONCE ] );
 
 		$next_url = add_query_arg( [
-			MMSSO_AUTH_RETURN_TO_QUERY_VAR => $return_url,
-			MMSSO_NONCE                    => sanitize_text_field( $_GET[ MMSSO_NONCE ] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			MMSSO_RETURN_TO_QUERY_VAR => $return_url,
+			MMSSO_NONCE               => sanitize_text_field( $_GET[ MMSSO_NONCE ] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		], get_site_url( $coming_from ) );
 
 		wp_redirect( $next_url );
@@ -141,7 +149,7 @@ class Multisite_Multidomain_Single_Sign_On {
 	 * Used on the authorizing site
 	 */
 	public function authorize_request() : void {
-		if ( empty( $_GET[ MMSSO_AUTH_RETURN_TO_QUERY_VAR ] ) ) {
+		if ( empty( $_GET[ MMSSO_RETURN_TO_QUERY_VAR ] ) ) {
 			return;
 		}
 
@@ -149,7 +157,7 @@ class Multisite_Multidomain_Single_Sign_On {
 			wp_die( 'Single Sign On requires that you be logged in. Please <a href="' . esc_url( wp_login_url() ) . '">log in</a>, then try again.' );
 		}
 
-		$return_url = esc_url_raw( $_GET[ MMSSO_AUTH_RETURN_TO_QUERY_VAR ] );
+		$return_url = esc_url_raw( $_GET[ MMSSO_RETURN_TO_QUERY_VAR ] );
 
 		// Prevent phishing attacks, make sure that the return-to site that gets the auth is a domain on this network.
 		$url_parts          = explode( '/', $return_url );
@@ -159,7 +167,7 @@ class Multisite_Multidomain_Single_Sign_On {
 		}
 
 		if ( empty( $_GET[ MMSSO_NONCE ] ) || ! wp_verify_nonce( $_GET[ MMSSO_NONCE ],
-				'multisite-sso-' . get_current_blog_id() . '-' . $requesting_site_id ) ) {  // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+				MMSSO_NONCE_PREFIX . get_current_blog_id() . '-' . $requesting_site_id ) ) {  // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 			wp_die( 'Single Sign On was attempted with a missing or bad nonce.' );
 		}
 
@@ -236,9 +244,9 @@ class Multisite_Multidomain_Single_Sign_On {
 	 *
 	 * @return string|null
 	 */
-	protected function get_user_password_hash( $uid ) : ?string {
+	protected function get_user_password_hash( int $uid ) : ?string {
 		global $wpdb;
-		$hash = $wpdb->get_var( $wpdb->prepare( "SELECT user_pass FROM {$wpdb->users} WHERE ID = %d",
+		$hash = $wpdb->get_var( $wpdb->prepare( "SELECT user_pass FROM $wpdb->users WHERE ID = %d",
 			$uid ) ); // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.user_meta__wpdb__users
 
 		return empty( $hash ) ?
