@@ -1,4 +1,5 @@
-<?php
+<?php /** @noinspection AutoloadingIssuesInspection */
+
 /*
 Plugin Name: Multisite Multidomain Single Sign On
 Description: Automatically sign the user in to separate-domain sites of the same multisite installation, when switching sites using the My Sites links in the admin menu. Note that the user already has to be logged into a site in the network, this plugin just cuts down on having to log in again due to cookie isolation between domains. Note: This plugin must be installed on all sites in a network in order to work.
@@ -13,7 +14,7 @@ License: GPL2
 
 class Multisite_Multidomain_Single_Sign_On {
 
-	function __construct() {
+	public function __construct() {
 		static $hooked = false;
 		if ( true === $hooked ) {
 			return;
@@ -30,7 +31,7 @@ class Multisite_Multidomain_Single_Sign_On {
 	 * @see WP_Admin_Bar
 	 * @see wp_admin_bar_my_sites_menu()
 	 */
-	function change_site_switcher_links() {
+	public function change_site_switcher_links() : void {
 		global $wp_admin_bar;
 		$nodes           = $wp_admin_bar->get_nodes();
 		$current_site_id = get_current_blog_id();
@@ -61,7 +62,7 @@ class Multisite_Multidomain_Single_Sign_On {
 	/*
 	 * Initiate the workflow, on a target site that the user wants to log into.
 	 */
-	function receive_sso_request() {
+	public function receive_sso_request() : void {
 		if ( empty( $_GET['msso-get-auth-from'] ) ) {
 			return;
 		} // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -69,7 +70,7 @@ class Multisite_Multidomain_Single_Sign_On {
 			wp_redirect( remove_query_arg( [ 'msso-get-auth-from', 'nonce' ] ) );
 			exit();
 		}
-		$coming_from = intval( $_GET['msso-get-auth-from'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$coming_from = (int) $_GET['msso-get-auth-from']; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$sso_site    = get_site( $coming_from );
 		if ( empty( $sso_site ) ) {
 			wp_die( 'Single Sign On is attempting to use an invalid site on this multisite.' );
@@ -91,7 +92,7 @@ class Multisite_Multidomain_Single_Sign_On {
 	/**
 	 * Used on the authorizing site
 	 */
-	function authorize_request() {
+	public function authorize_request() : void {
 		if ( empty( $_GET['msso-auth-return-to'] ) ) {
 			return;
 		}
@@ -124,7 +125,7 @@ class Multisite_Multidomain_Single_Sign_On {
 			wp_die( 'Single Sign On failed. Your password hash was empty. Try changing your Wordpress password.' );
 		}
 
-		$hash = $this->hash( implode( '||', [ intval( $current_user->ID ), intval( $expires ), $user_pass_hash ] ) );
+		$hash = $this->hash( implode( '||', [ $current_user->ID, (int) $expires, $user_pass_hash ] ) );
 		if ( empty( $hash ) ) {
 			wp_die( 'Single Sign On failed. The network needs a secure salt.' );
 		}
@@ -141,7 +142,7 @@ class Multisite_Multidomain_Single_Sign_On {
 	/*
 	 * Final step, used on the target site.
 	 */
-	function receive_auth() {
+	public function receive_auth() : void {
 		$keys = [ 'msso-auth', 'msso-user-id', 'msso-expires' ]; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		foreach ( $keys as $key ) {
 			if ( empty( $_GET[ $key ] ) ) {
@@ -154,8 +155,8 @@ class Multisite_Multidomain_Single_Sign_On {
 			exit();
 		}
 
-		$user_id       = intval( $_GET['msso-user-id'] ); // phpcs:ignore:WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.NonceVerification.Recommended
-		$expires       = intval( $_GET['msso-expires'] ); // phpcs:ignore:WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.NonceVerification.Recommended
+		$user_id       = (int) $_GET['msso-user-id']; // phpcs:ignore:WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.NonceVerification.Recommended
+		$expires       = (int) $_GET['msso-expires']; // phpcs:ignore:WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.NonceVerification.Recommended
 		$received_hash = sanitize_text_field( $_GET['msso-auth'] ); // phpcs:ignore:WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.NonceVerification.Recommended
 
 		if ( $expires < time() ) {
@@ -185,7 +186,7 @@ class Multisite_Multidomain_Single_Sign_On {
 	 *
 	 * @return string|null
 	 */
-	protected function get_user_password_hash( $uid ) {
+	protected function get_user_password_hash( $uid ) : ?string {
 		global $wpdb;
 		$hash = $wpdb->get_var( $wpdb->prepare( "SELECT user_pass FROM {$wpdb->users} WHERE ID = %d",
 			$uid ) ); // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.user_meta__wpdb__users
@@ -196,13 +197,13 @@ class Multisite_Multidomain_Single_Sign_On {
 	}
 
 	/**
-	 * Create a secure hash that can only be recreated from this Wordpress install's secret salt.
+	 * Create a secure hash that can only be recreated from this WordPress' secret salt.
 	 *
 	 * @param string $thing
 	 *
 	 * @return false|string
 	 */
-	protected function hash( $thing ) {
+	protected function hash( string $thing ) {
 		if ( ! function_exists( 'hash' ) ) {
 			return false;
 		}
