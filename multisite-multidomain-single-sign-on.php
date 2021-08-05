@@ -81,9 +81,6 @@ class Multisite_Multidomain_Single_Sign_On {
 				continue;
 			}
 
-			$target_url_parts = wp_parse_url( $node->href );
-			$target_site      = get_site_by_path( $target_url_parts['host'], $target_url_parts['path'] );
-			$nonce            = wp_create_nonce( 'multisite-sso-' . $current_site_id . '-' . $target_site->blog_id );
 			$node->href       = $this->add_sso_to_url( $node->href );
 			$wp_admin_bar->add_node( $node );
 		}
