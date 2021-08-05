@@ -1,0 +1,23 @@
+{
+	"name": "mikelittle/multisite-multidomain-single-sign-on",
+	"description": "Multisite Multidomain Single Sign On",
+	"keywords": ["wordpress", "plugin", "multisite", "multidomain"],
+	"homepage": "https://github.com/mikelittle/multisite-multidomain-single-sign-on",
+	"license": "GPL2+",
+	"authors": [
+	{
+		"name": "Mike Little",
+		"email": "mike@zed1.com",
+		"homepage": "https://mikelittle.org/"
+	},
+	{
+		"name": "emfluence Digital Marketing",
+		"homepage": "https://emfluence.com"
+	}],
+	"type": "wordpress-plugin",
+	"require":
+	{
+		"php": ">=7.3",
+		"composer/installers": "~1.10"
+	}
+}
