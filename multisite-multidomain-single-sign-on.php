@@ -2,7 +2,7 @@
 /*
 Plugin Name: Multisite Multidomain Single Sign On
 Description: Automatically sign the user in to separate-domain sites of the same multisite installation, when switching sites using the 'My Sites' links in the admin menu. Note that the user already has to be logged into a site in the network, this plugin just cuts down on having to log in again due to cookie isolation between domains. Note: This plugin must be installed on all sites in a network in order to work.
-Version: 1.3.6
+Version: 1.3.7
 Requires at least: 5.0
 Tested up to: 5.7.2
 Requires PHP: 7.4
@@ -96,20 +96,18 @@ class Multisite_Multidomain_Single_Sign_On {
 	 */
 	public function add_sso_to_url( string $url ) : string {
 		$current_site_id = get_current_blog_id();
-
 		$target_url_parts = wp_parse_url( $url );
-
 		if ( $target_url_parts === false || $target_url_parts === null || empty( $target_url_parts['host'] ) || empty( $target_url_parts['path'] ) ) {
 
 			return $url;
 		}
-		if ( $target_url_parts['host'] === get_current_site()->domain ) {
+		$site = get_site( $current_site_id );
+		if ( $target_url_parts['host'] === $site->domain ) {
 
 			return $url;
 		}
 		$target_site = get_site_by_path( $target_url_parts['host'], $target_url_parts['path'] );
 		$nonce       = wp_create_nonce( MMSSO_NONCE_PREFIX . $current_site_id . '-' . $target_site->blog_id );
-
 		return add_query_arg(
 			[
 				MMSSO_FROM_QUERY_VAR => $current_site_id,
