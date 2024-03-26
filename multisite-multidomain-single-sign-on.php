@@ -2,7 +2,7 @@
 /*
 Plugin Name: Multisite Multidomain Single Sign On
 Description: Automatically sign the user in to separate-domain sites of the same multisite installation, when switching sites using the 'My Sites' links in the admin menu. Note that the user already has to be logged into a site in the network, this plugin just cuts down on having to log in again due to cookie isolation between domains. Note: This plugin must be installed on all sites in a network in order to work.
-Version: 1.3.4
+Version: 1.3.7
 Requires at least: 5.0
 Tested up to: 5.7.2
 Requires PHP: 7.4
@@ -96,13 +96,24 @@ class Multisite_Multidomain_Single_Sign_On {
 	 */
 	public function add_sso_to_url( string $url ) : string {
 		$current_site_id = get_current_blog_id();
-
 		$target_url_parts = wp_parse_url( $url );
-		if ( empty( $target_url_parts['host'] ) || empty( $target_url_parts['path'] ) ) {
+		if ( $target_url_parts === false || $target_url_parts === null || empty( $target_url_parts['host'] ) || empty( $target_url_parts['path'] ) ) {
+
 			return $url;
 		}
-		$target_site      = get_site_by_path( $target_url_parts['host'], $target_url_parts['path'] );
-		$nonce            = wp_create_nonce( MMSSO_NONCE_PREFIX . $current_site_id . '-' . $target_site->blog_id );
+		$site = get_site( $current_site_id );
+		if ( $target_url_parts['host'] === $site->domain ) {
+
+			return $url;
+		}
+		$target_site = get_site_by_path( $target_url_parts['host'], $target_url_parts['path'] );
+		if ( $target_site === false ) {
+			\Zed1\Debug\zed1_debug( 'Cannot find site from parts:', $target_url_parts );
+
+			return $url;
+		}
+
+		$nonce = wp_create_nonce( MMSSO_NONCE_PREFIX . $current_site_id . '-' . $target_site->blog_id );
 
 		return add_query_arg(
 			[
@@ -134,16 +145,14 @@ class Multisite_Multidomain_Single_Sign_On {
 		}
 
 		if ( empty( $_GET[ MMSSO_NONCE ] ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.NonceVerification.Recommended
-			wp_die( 'Single Sign On was attempted with a missing nonce.' );
+			wp_die( 'Single Sign On was attempted with a missing key.' );
 		}
 
 		$return_url = get_site_url() . remove_query_arg( [ MMSSO_FROM_QUERY_VAR, MMSSO_NONCE ] );
-
-		$next_url = add_query_arg( [
+		$next_url   = add_query_arg( [
 			MMSSO_RETURN_TO_QUERY_VAR => $return_url,
-			MMSSO_NONCE               => sanitize_text_field( $_GET[ MMSSO_NONCE ] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			MMSSO_NONCE               => sanitize_text_field( $_GET[ MMSSO_NONCE ] ), // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		], get_site_url( $coming_from ) );
-
 		wp_redirect( $next_url );
 		exit();
 	}
@@ -171,7 +180,7 @@ class Multisite_Multidomain_Single_Sign_On {
 
 		if ( empty( $_GET[ MMSSO_NONCE ] ) || ! wp_verify_nonce( $_GET[ MMSSO_NONCE ],
 				MMSSO_NONCE_PREFIX . get_current_blog_id() . '-' . $requesting_site_id ) ) {  // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			wp_die( 'Single Sign On was attempted with a missing or bad nonce.' );
+			wp_die( 'Single Sign On was attempted with a missing or bad key.' );
 		}
 
 		$current_user = wp_get_current_user();
