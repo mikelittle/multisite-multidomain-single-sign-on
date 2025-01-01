@@ -106,7 +106,7 @@ class Multisite_Multidomain_Single_Sign_On {
 
 			return $url;
 		}
-		$target_site = get_site_by_path( $target_url_parts['host'], $target_url_parts['path'] );
+		$target_site = get_site_by_path( $target_url_parts['host'], $target_url_parts['path'] ?? '/' );
 		if ( $target_site === false ) {
 			\Zed1\Debug\zed1_debug( 'Cannot find site from parts:', $target_url_parts );
 
