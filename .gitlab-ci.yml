@@ -1,0 +1,4 @@
+include:
+  - project: 'wp-plugins/ci-templates'
+    ref: main
+    file: '/composer-publish.yml'
